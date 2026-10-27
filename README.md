@@ -33,7 +33,7 @@ back, removes the launcher, then removes what the setup installed on the Pi.
 ## Usage
 
 ```bash
-git clone git@github.com:<you>/tcl-tv-debloat.git
+git clone git@github.com:OscarMederos/tcl-tv-debloat.git
 cd tcl-tv-debloat
 chmod +x scripts/*.sh
 scripts/pi-setup.sh 192.168.1.140
@@ -91,6 +91,3 @@ packages, free storage and recent errors.
 
 Other TVs should work with a different `LIST_SRC`, but only the setup above has been exercised.
 
-## License
-
-MIT, see [LICENSE](LICENSE). Upstream cleanyourtv is MIT, copyright its author.
