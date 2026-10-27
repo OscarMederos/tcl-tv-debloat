@@ -1,0 +1,11 @@
+# Runtime output and local state
+*.log
+diagnostics.txt
+state.env
+cleanyourtv-pi/
+
+# Editor and OS noise
+.DS_Store
+*.swp
+.idea/
+.vscode/
