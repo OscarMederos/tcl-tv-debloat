@@ -2,6 +2,7 @@
 # pi-cleanup.sh - undo everything pi-setup.sh did.
 #
 # Usage:  ./pi-cleanup.sh [-y] [TV_IP]
+#         --pi-only  only clean this Pi; never contact or change the TV
 # Env:    FORCE=1  carry on with the Pi cleanup even if the TV could not be restored
 #                  (the recovery record is deleted, so the restore can no longer be run)
 #
@@ -11,11 +12,13 @@
 set -Eeuo pipefail
 
 ASSUME_YES=0
+PI_ONLY=0
 POSITIONAL=()
 for arg in "$@"; do
     case "$arg" in
         -y|--yes) ASSUME_YES=1 ;;
-        -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
+        --pi-only) PI_ONLY=1 ;;
+        -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
         *) POSITIONAL+=("$arg") ;;
     esac
 done
@@ -47,12 +50,20 @@ PY="${REPO:-}/tools/venv/bin/python"
 [[ -x "$PY" ]] || PY=python3
 
 log "TV: $TV_HOST | workspace: $WORK"
-confirm "Restore the TV and remove everything pi-setup.sh installed?" || die "cancelled"
+if [[ "$PI_ONLY" == 1 ]]; then
+    log "--pi-only: the TV will not be touched and stays debloated with the new launcher."
+    confirm "Remove everything pi-setup.sh installed on this Pi (recovery record in ~/.cleanyourtv is kept)?" || die "cancelled"
+else
+    confirm "Restore the TV and remove everything pi-setup.sh installed?" || die "cancelled"
+fi
 
 # --- 1. Restore the TV -----------------------------------------------------------------------
 
 tv_restored=0
-if [[ -d "${REPO:-}" && -f "${LIST:-}" ]]; then
+if [[ "$PI_ONLY" == 1 ]]; then
+    log "1/2 Skipping the TV restore (--pi-only)"
+    tv_restored=1
+elif [[ -d "${REPO:-}" && -f "${LIST:-}" ]]; then
     log "1/2 Restoring the TV (wake it; accept any ADB prompt)"
     cd "$REPO"
     if "$PY" -I tools/tv.py --probe && tools/restore.sh "$LIST" "$STOCK_LAUNCHER"; then
@@ -76,7 +87,7 @@ if [[ "$tv_restored" != 1 && "${FORCE:-0}" != 1 ]]; then
     die "TV not restored; nothing on the Pi was removed. Fix the connection and re-run, or set FORCE=1."
 fi
 
-if [[ -d "${REPO:-}" ]]; then
+if [[ "$PI_ONLY" != 1 && -d "${REPO:-}" ]]; then
     log "Turn off USB debugging on the TV (Settings > System > Developer options)."
     if [[ "$ASSUME_YES" != 1 ]]; then
         read -r -p "Press Enter when done to verify the ADB port is closed (or Ctrl-C to skip): " _
@@ -105,7 +116,7 @@ if [[ -n "${GRADLE_LINE:-}" && -f "$HOME/.gradle/gradle.properties" ]]; then
 fi
 [[ "${GRADLE_DIR_EXISTED:-1}" == 0 ]] && rm -rf "$HOME/.gradle"
 [[ "${ANDROID_DIR_EXISTED:-1}" == 0 ]] && rm -rf "$HOME/.android"
-[[ "${CYTV_DIR_EXISTED:-1}" == 0 ]] && rm -rf "$HOME/.cleanyourtv"
+[[ "$PI_ONLY" != 1 && "${CYTV_DIR_EXISTED:-1}" == 0 ]] && rm -rf "$HOME/.cleanyourtv"
 
 if [[ -n "${APT_ADDED:-}" ]] && confirm "Remove apt packages the setup installed (${APT_ADDED})? Other packages are left alone."; then
     # shellcheck disable=SC2086
@@ -114,5 +125,9 @@ fi
 
 rm -rf "$WORK"
 
+if [[ "$PI_ONLY" == 1 ]]; then
+    log "Done. Pi cleaned; the TV was not touched. The recovery record stays in ~/.cleanyourtv."
+    exit 0
+fi
 log "Done. The TV is back on its stock launcher with the debloat undone; logs kept in $LOG_KEEP."
 log "Left in place on purpose: unused apt dependencies (run 'sudo apt autoremove' yourself if you want them gone)."
